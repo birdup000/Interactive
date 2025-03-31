@@ -47,6 +47,31 @@ interface User {
   role_id: number;
 }
 
+// Helper function to handle the role change API call
+const handleChangeRole = async (userId: string, newRoleId: number, companyId: string, mutateFn: () => void) => {
+  try {
+    await axios.put(
+      `${process.env.NEXT_PUBLIC_AGIXT_SERVER}/v1/user/role`,
+      { user_id: userId, role_id: newRoleId, company_id: companyId },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: getCookie('jwt'),
+        },
+      }
+    );
+    mutateFn(); // Refresh the user list
+    // TODO: Add a success toast notification here
+  } catch (error) {
+    console.error('Failed to change user role:', error);
+    // TODO: Add an error toast notification here
+  }
+};
+
+// Role definitions (as per requirements)
+const ROLE_TENANT_ADMIN = 1;
+const ROLE_COMPANY_ADMIN = 2;
+const ROLE_USER = 3;
 const ROLES = [
   { id: 2, name: 'Admin' },
   { id: 3, name: 'User' },
@@ -209,6 +234,9 @@ export const TeamUsers = () => {
       cell: ({ row }) => {
         const router = useRouter();
 
+        const targetUser = row.original;
+        const currentUserRoleId = activeCompany?.my_role;
+        const targetUserRoleId = targetUser.role_id;
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -232,6 +260,24 @@ export const TeamUsers = () => {
                 </Button>
               </DropdownMenuItem> */}
               <DropdownMenuItem onSelect={() => router.push(`/users/${row.original.id}`)}>View Details</DropdownMenuItem>
+              {/* Change Role Options - Conditionally Rendered */}
+              {currentUserRoleId < ROLE_COMPANY_ADMIN && targetUserRoleId >= ROLE_COMPANY_ADMIN && (
+                <DropdownMenuItem
+                  onSelect={(e) => e.preventDefault()} // Prevent closing menu immediately
+                  onClick={() => handleChangeRole(targetUser.id, ROLE_COMPANY_ADMIN, activeCompany?.id, mutate)}
+                >
+                  Change Role to Company Admin
+                </DropdownMenuItem>
+              )}
+              {currentUserRoleId < ROLE_USER && targetUserRoleId >= ROLE_USER && (
+                 <DropdownMenuItem
+                  onSelect={(e) => e.preventDefault()} // Prevent closing menu immediately
+                  onClick={() => handleChangeRole(targetUser.id, ROLE_USER, activeCompany?.id, mutate)}
+                >
+                  Change Role to User
+                </DropdownMenuItem>
+              )}
+              { (currentUserRoleId < ROLE_COMPANY_ADMIN && targetUserRoleId >= ROLE_COMPANY_ADMIN) || (currentUserRoleId < ROLE_USER && targetUserRoleId >= ROLE_USER) ? <DropdownMenuSeparator /> : null }
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={(e) => {
